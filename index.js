@@ -1,8 +1,17 @@
-
-const getSearchParams = () => new Map(window.location.hash.slice(1).split('&').map(x => x.split('=')));
-
 const { h, app } = window.hyperapp;
 
+
+// defualt latitude and longitude: Shanghai, China
+var latitude = 31.224361;
+var longitude = 121.469170;
+// get the latitude and longitude of user's city
+$.get("https://api.ipdata.co?api-key=test", function (response) {
+    latitude = response.latitude;
+    longitude = response.longitude;
+}, "jsonp");
+
+
+// draw Mountains
 const randPlusMinus = n => Math.random() * n - n/2;
 
 const mkMidpoints = points => {
@@ -33,7 +42,6 @@ class PointGenerator {
     let points = [start || Math.random() * 15 + 30, Math.random() * 15 + 30];
     for (let i = 0; i < iterations; i++) {
       points = mkMidpoints(points);
-      // console.log(points)
     }
     return points;
   }
@@ -58,18 +66,14 @@ const arrayToD = points => {
   for (const i in points) {
     parts.push(`${i * 350 / (points.length - 1) - 125},${points[i] + 25}`);
   }
-  console.log(parts)
+  //console.log(parts)
   parts.push([225,200]);
+
   return parts.join(' ');
 };
 
+// product SVG Path DOM 
 const mountainRange = (fill, points) => h('path', {fill, d: arrayToD(points)}, []);
-
-const nightLumOffset = () => {
-  const sunRatio = getSunRatio()
-  const night = sunRatio < 0 || sunRatio > 1;
-  return night ? 40 : 0;
-};
 
 const generateMountainRanges = (points, hue) => {
   const sunRatio = getSunRatio();
@@ -87,6 +91,23 @@ const generateMountainRanges = (points, hue) => {
 
 
 
+function dayOfYear() {
+    var now = new Date();
+    var start = new Date(now.getFullYear(), 0, 0);
+    var diff = now - start;
+    var oneDay = 1000 * 60 * 60 * 24;
+    return Math.floor(diff / oneDay);
+}
+
+function hourOfDay() {
+    var now = new Date();
+    var start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // console.log(now, start)
+    var diff = now - start;
+    var oneHour = 1000 * 60 * 60;
+    return diff / oneHour;
+}
+
 // cribbed from https://gist.github.com/Tafkas/4742250
 function computeSunrise(day, sunrise) {
 
@@ -98,9 +119,8 @@ function computeSunrise(day, sunrise) {
         output:
             time of sunrise/sunset in hours */
 
-    //lat, lon for Washington, DC, USA 31.224361, 121.469170.
-    var longitude = 121.469170;
-    var latitude = 38.908975;
+    // var longitude = 121.469170;
+    // var latitude = 38.908975;
     var zenith = 90.83333333333333;
     var D2R = Math.PI / 180;
     var R2D = 180 / Math.PI;
@@ -175,32 +195,29 @@ function computeSunrise(day, sunrise) {
     return localT * 3600 * 1000;
 }
 
-function dayOfYear() {
-  var now = new Date();
-  var start = new Date(now.getFullYear(), 0, 0);
-  var diff = now - start;
-  var oneDay = 1000 * 60 * 60 * 24;
-  return Math.floor(diff / oneDay);
-}
-
-function hourOfDay() {
-  var now = new Date();
-  var start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  // console.log(now, start)
-  var diff = now - start;
-  var oneHour = 1000 * 60 * 60;
-  return diff / oneHour;
-}
-
 function getSunRatio() {
   const hour = hourOfDay();
-  const sunrise = computeSunrise(dayOfYear(), true)  / 1000 / 3600;
-  const sunset = computeSunrise(dayOfYear(), false) / 1000 / 3600;
+  const sunrise = computeSunrise(dayOfYear(), true)  / 1000 / 3600 %24;
+  const sunset = computeSunrise(dayOfYear(), false) / 1000 / 3600 %24;
   
-  // return .94; // debugging
   // sun progress during day a on scale [0, 1]
   return (hour - sunrise) / (sunset - sunrise);
 }
+
+// sky lights up and lights down
+const nightLumOffset = () => {
+    const sunRatio = getSunRatio()
+    // lights up
+    if (sunRatio >= -0.025 && sunRatio <= 0.15)
+        return (1-(sunRatio+0.025)/(0.025+0.15))*40;
+    // lights down
+    else if (sunRatio >=0.925 && sunRatio <= 1.04)
+        return (sunRatio-0.925)/(1.04-0.925)*40;
+    else
+        return (sunRatio < 0 || sunRatio > 1)? 40:0;
+};
+
+
 
 const sky = (hue) => h('rect', {x: -125, y: -100, height: 300, width: 350, fill: `hsl(${hue}, 35%, ${89 - nightLumOffset()*2}%)`}, []);
 const sun = (hue) => {
@@ -211,39 +228,18 @@ const sun = (hue) => {
   // console.log(sunHeight);
   return h('circle', {cx: (sunRatio - .5) * 100 + 50, cy: sunHeight, r: 10, fill: `hsl(${hue}, 35%, 97%)`}, [])
 };
+const moon = (hue) =>{
+}
+
+
+
+
 
 const view = (state, actions) => {
-  return h('div', {id: 'view', oncreate: () => {window.onhashchange = () => {actions.setHueFromHash()};}}, [
-    // h('input', {
-    //   style: {position: 'fixed', top: '10px', left: '10px'},
-    //   type: 'range',
-    //   min: 0,
-    //   max: 360,
-    //   onchange: actions.setHueFromEvent,
-    //   value: state.hue,
-    //   // oncreate: hideElemUnlessMouseMove,
-    // }),
-    // h('button', {
-    //   style: {position: 'fixed', bottom: '10px', right: '10px'},
-    //   onclick: ev => {
-    //     const elem = document.body;
-    //     ev.preventDefault();
-    //     if (elem.requestFullscreen) {
-    //       elem.requestFullscreen();
-    //     } else if (elem.msRequestFullscreen) {
-    //       elem.msRequestFullscreen();
-    //     } else if (elem.mozRequestFullScreen) {
-    //       elem.mozRequestFullScreen();
-    //     } else if (elem.webkitRequestFullscreen) {
-    //       elem.webkitRequestFullscreen();
-    //     }
-    //     return false;
-    //   },
-    //   // oncreate: hideElemUnlessMouseMove,
-    // }, ['fullscreen']),
+  return h('div', {id: 'view'}, [
     h('svg', {
       viewBox: '0 0 100 100',
-      oncreate: () => setInterval(actions.generatePoints, 10000),
+      oncreate: () => setInterval(actions.generatePoints, 1000),
      }, [
       sky(state.hue),
       sun(state.hue),
@@ -254,22 +250,13 @@ const view = (state, actions) => {
 
 const state = {
   points: new Array(8).fill(0).map(() => new PointGenerator()),
-  hue: getSearchParams().get('h') || 206,
+  hue: 206,
 };
+
 const actions = {
   generatePoints: n => state => ({
     points: state.points.map(points => points.tick()),
   }),
-  setHueFromHash: ev => {
-    return {hue: getSearchParams().get('h')};
-  },
-  setHueFromEvent: ev => {
-    window.location.hash = `#h=${ev.target.value}`;
-    return {hue: ev.target.value};
-  },
 };
 
 app(state, actions, view, document.getElementById('app'));
-
-// show element on mouse movement only
-
