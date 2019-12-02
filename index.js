@@ -218,6 +218,20 @@ const nightLumOffset = () => {
 };
 
 
+// moon
+function getMoonPosition() {
+  var R2D = 180 / Math.PI;
+  var now = new Date();
+  azimuth = SunCalc.getMoonPosition( now, latitude, longitude).azimuth;
+  ratio = azimuth * R2D;
+  return (ratio-90)/180;
+}
+
+function getMoonPhase() {
+  var now = new Date();
+  return SunCalc.getMoonIllumination(now).phase;
+}
+
 
 const sky = (hue) => h('rect', {x: -125, y: -100, height: 300, width: 350, fill: `hsl(${hue}, 35%, ${89 - nightLumOffset()*2}%)`}, []);
 const sun = (hue) => {
@@ -226,9 +240,20 @@ const sun = (hue) => {
   // sun height, just a simple parabola. no need to flip or anything bc svg coords are backwards anyway
   const sunHeight = 10 + Math.pow((sunRatio - .5) * 100 /*scale to [-100, 100]*/, 2) / 50;
   // console.log(sunHeight);
-  return h('circle', {cx: (sunRatio - .5) * 100 + 50, cy: sunHeight, r: 10, fill: `hsl(${hue}, 35%, 97%)`}, [])
+  return h('circle', {cx: sunRatio * 100, cy: sunHeight, r: 10, fill: `hsl(${hue}, 35%, 97%)`}, [])
 };
 const moon = (hue) =>{
+  const moonRatio = getMoonPosition();
+  const moonHeight = 10 + Math.pow((moonRatio - .5) * 100, 2) / 50;
+
+  return h('circle', {cx: moonRatio * 100, cy: moonHeight, r: 5, fill: `hsl(${hue}, 35%, 89%)` }, []);
+  
+}
+const moonShadow = (hue) => {
+  const shadowOffset = getMoonPhase() * 10;
+  const cx = getMoonPosition()*100-shadowOffset;
+  const cy = 10 + Math.pow((getMoonPosition() - .5) * 100, 2) / 50;
+  return h('circle', {cx: cx, cy: cy, r: 5, fill: `hsl(${hue}, 35%, ${89 - nightLumOffset()*2}%)` }, []);
 }
 
 
@@ -242,6 +267,8 @@ const view = (state, actions) => {
       oncreate: () => setInterval(actions.generatePoints, 1000),
      }, [
       sky(state.hue),
+      moon(state.hue),
+      moonShadow(state.hue),
       sun(state.hue),
       ...generateMountainRanges(state.points.map(points => points.visiblePoints), state.hue),
     ]),
