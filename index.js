@@ -1,15 +1,21 @@
 const { h, app } = window.hyperapp;
 
 
-// defualt latitude and longitude: Shanghai, China
-var latitude = 31.224361;
-var longitude = 121.469170;
-// get the latitude and longitude of user's city
-$.get("https://api.ipdata.co?api-key=test", function (response) {
-    latitude = response.latitude;
-    longitude = response.longitude;
-}, "jsonp");
+// get rough location
+var latitude;
+var longitude;
 
+fetch("https://api.ipdata.co/?api-key=2f0353b0045ebc7d4df7a8152b6e010183f19721f232588ef1f5a7a0").then(function(response) {
+  return response.json();
+}).then(data => {
+  latitude = data.latitude;
+  longitude = data.longitude;
+});
+// if cannot get latitude and longitude, use default value, Shanghai
+if (!latitude) {
+  latitude = 31.224361;
+  longitude = 121.469170;
+}
 
 // draw Mountains
 const randPlusMinus = n => Math.random() * n - n/2;
@@ -264,7 +270,7 @@ const view = (state, actions) => {
   return h('div', {id: 'view'}, [
     h('svg', {
       viewBox: '0 0 100 100',
-      oncreate: () => setInterval(actions.generatePoints, 1000),
+      oncreate: () => setInterval(actions.generatePoints, 180*1000),
      }, [
       sky(state.hue),
       moon(state.hue),
